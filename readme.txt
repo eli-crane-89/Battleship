@@ -1,0 +1,1 @@
+#To run copy code into text editor and save as "Battleship.py". Then navigate to the folder and execute the file from a console.
