@@ -7,45 +7,94 @@ require(glmnet)
 require(plyr)
 require(data.table)
 require(lars)
+require(parallel)
 
-setwd("~/Python")
+setwd("C:/Users/eli.crane/Documents/School/Thesis")
 
 #Pull in Data
-dtWork <- read.csv(file="Final_Train_AfterCorr.csv", header=T, sep = ",")
-dropCols <- c("Key")
+resume = 1
+if (resume == 1){
+  dtWork <- read.csv(file="Data/WorkingData/Combined_Imputed_Complete.csv", header=T, sep = ",")
+  dropCols <- c("X","rowNames")
+}else{
+  dtWork <- read.csv(file="Data/TransformedData/WorldBankData_ReadyForImputation_MiddleEastSouthAsiaSouthEastAsia_1966_2013.csv", header=T, sep = ",")
+  dropCols <- c("Key","X")
+}
+
 dtWork <- dtWork[,!(names(dtWork) %in% dropCols)]
 
-#Garbage Collection
-rm(list=c("dropCols"))
 
-for (z in 1:4)
-{
-  
-print(z)
+#Find Initial Missing Pattern
+dfMissPatt <- md.pattern(dtWork)
 
 #Copy dataframe for final imputation
 dfImpute <- dtWork
 dfImpute$rowNames <- row.names(dfImpute)
 
-#Create Missing Pattern
-write.csv(md.pattern(dtWork), file = "wbMissingPattern.csv")
+#Set InitialVars
+noCols = ncol(dfMissPatt)
+skipRow = 8
+z = 0
+startTime <- Sys.time()
+totalImputes = sum(data.frame(dfMissPatt[(2+skipRow):(nrow(dfMissPatt)-1),noCols]))
+#totalImputes <- 36
+totalImputesComplete = 0
 
-#Find Missing Pattern
-dfMissPatt <- md.pattern(dtWork)
+imputesRemain <- totalImputes
+totalPossibleVars = 0
+totalMaxVars = 0
+numIters = 500
+
+#Garbage Collection
+rm(list=c("dropCols"))
+
+while (imputesRemain > 0)
+{
+
+
+#Print Summary
+z <- z + 1
+
+print(sprintf("###############Imputation: %s###############",z))
+print(sprintf("Current Time: %s",as.POSIXlt(Sys.time())))
+timeDiff <- difftime(Sys.time(),startTime,units="mins")
+print(sprintf("Time Running: %f minutes", timeDiff))
+print(sprintf("Imputed Values: %s",totalImputesComplete))
+print(sprintf("Non Imputed Values: %s",imputesRemain))
+print(sprintf("Number of Iterations: %s",numIters))
+# if (totalImputesComplete > 0)
+# {
+#   avgPerc = (totalMaxVars/totalPossibleVars) * 100
+#   print(sprintf("Average Percent of Vars Used Per Imputation: %s",avgPerc))
+# }
+print(sprintf("SkipRow: %s", skipRow))
+if (z > 1)
+{  
+  timeRemain <- (timeDiff/(totalImputesComplete)) * (imputesRemain)
+  print(sprintf("Estimated Time Remaining: %f minutes", timeRemain))
+}
+curImputes = dfMissPatt[2+skipRow,noCols]
+
+
+
+#Create Missing Pattern
+write.csv(md.pattern(dtWork), file = "Data/WorkingData/wbMissingPattern.csv")
+
+
 
 #Determine if there are complete cases
 missingVars = 0
 completeCase = 0
-for (j in 1:(ncol(dfMissPatt)-1)){
-  if (dfMissPatt[1,j] == 0){
-    missingVars = missingVars + 1
-  }
-}
+#for (j in 1:(ncol(dfMissPatt)-1)){
+#  if (dfMissPatt[1,j] == 0){
+#    missingVars = missingVars + 1
+#  }
+#}
 
 if(missingVars==0){completeCase=1}
 
 #Garbage Collection
-rm(list=c("missingVars","j"))
+rm(list=c("missingVars"))
 
 #If There are complete cases, proceed
 listCompleteCases = c(0)
@@ -83,7 +132,7 @@ colNamesMiss <- colnames(dfMissPatt)
 missCols <- c(0)
 for (j in 1:(ncol(dfMissPatt) - 1))
 {
-  if (dfMissPatt[2,j] == 0){
+  if (dfMissPatt[(2+skipRow),j] == 0){
     missCols <- c(missCols,j)
   }  
 }
@@ -98,182 +147,127 @@ for (h in 1:length(missCols))
 }
 missColsTrans <- missColsTrans[2:length(missColsTrans)]
 
-listCases = c(0)
+listImputeCases = c(0)
 row = 1
 for (i in 1:nrow(dtWork))
 {
+  rowCase = 0
   isCase = T
   for (j in 1:ncol(dtWork))
   {
     
-    if (is.na(dtWork[i,j]) && !(j %in% missColsTrans))
+    if (is.na(dtWork[i,j]))
     {
+      if (!(j %in% missColsTrans)){
       isCase = F
       break
+      } else {
+        rowCase = rowCase + 1
+      }
     }     
   }
-  if (isCase && !(i %in% listCompleteCases))
+  if (isCase && !(i %in% listCompleteCases) && rowCase == curImputes)
   {
-    listCases = c(listCases,row)
+    listImputeCases = c(listImputeCases,row)
   }
   row = row + 1
 }
-listCases = listCases[2:length(listCases)]
+listImputeCases = listImputeCases[2:length(listImputeCases)]
 
-rm(list=c("isCase","d","h","i","j","row","colNamesMiss","dfMissPatt"))
+
 
 #Create Train and Predict data set based on NAs
 dtTrain <- dtWork[listCompleteCases,]
-dtPred <- dtWork[listCases,]
+dtPred <- dtWork[listImputeCases,]
 
 #Garbage Collection
-rm(list=c("listCases","listCompleteCases"))
+rm(list=c("isCase","d","h","i","j","row","colNamesMiss"))#,"dfMissPatt"))
 
 #Loop through and impute all missing columns for the subset of data
-for (n in 1:length(missColsTrans))
-  {
+if (length(missColsTrans) == 1){
+  imputeSet <- sapply(1:length(missColsTrans),imputation, missColsTrans, colNames, dtTrain, dtPred, numIters)
+} else{
+  #Cluster SetUp
+  cl <- makeCluster(4)
+  clusterExport(cl,c('imputation'))
   
-    #n <- 1
-    #Assign missing column number
-    missCol <- missColsTrans[n]
-    
-    #Create Inverted Matrix for Lasso Model
-    x <- as.matrix(dtTrain[,-missColsTrans])
-    y <- as.matrix(dtTrain[,missCol])
-    xfactors <- model.matrix(y ~ x)[,-1]
-    
-    #Run Lasso and find best Lambda
-    glmmod <- glmnet(xfactors,y=y,alpha=1,family='gaussian')
-    cv.glmmod <- cv.glmnet(xfactors,y=y,alpha=1)
-    bestLambda <- cv.glmmod$lambda.min
-    bestModel <- match(bestLambda, as.vector(glmmod$lambda))
-    
-    #Get Lasso Coeffs
-    lassoCoeffs <- data.frame(coef(glmmod)[,bestModel])
-    setnames(lassoCoeffs,"coeffs")
-    lassoCoeffs <- data.frame(row.names(lassoCoeffs),lassoCoeffs$coeffs)
-    setnames(lassoCoeffs,"row.names.lassoCoeffs.","feature")
-    setnames(lassoCoeffs,"lassoCoeffs.coeffs","coeffs")
-    
-    #Garbage Collection
-    rm(list=c("bestLambda","bestModel"))
-    
-    #Set predict model
-    dtPred[,missCol] <- 0
-    x <- as.matrix(dtPred[,-missColsTrans])
-    y <- as.matrix(dtPred[,missCol])
-    predFactor <- model.matrix(y ~ x)[,-1]
-    #fit <- predict(cv.glmmod,predFactor)
-    
-    #Garbage Collection
-    rm(list=c("x","xfactors","y","cv.glmmod","glmmod"))
-    
-    #Mixed model Approach
-    dfNZ <- as.vector(lassoCoeffs[abs(lassoCoeffs$coeff) > 0,]$feature)
-    for (h in 1:length(dfNZ))
-    {
-      subStr = substr(dfNZ[length(dfNZ) + 1 - h],2,nchar(dfNZ[length(dfNZ) +1-h]))
-      dfNZ = dfNZ[-c(length(dfNZ) + 1 - h)]
-      dfNZ = c(dfNZ,subStr)
-    }
-    
-    dfNZ <- dfNZ[2:length(dfNZ)]
-    dfNZ <- c(as.vector(dfNZ),colNames[missCol])
-    seed = 0
-    maxVars <- 0
-    iter = 0
-    dtPred[,missCol] <- NA
-    dfAll <- rbind(dtTrain, dtPred)
-    
-    #Perform at least 1000 iterations to solve for the maximum number of randomly selected variables
-    while(iter < 1000 || maxVars == 0)#length(dfNZ)^2)
-    {
-      seed = seed + 1
-      set.seed(seed)
-      numVars <- sample((maxVars+1):(length(dfNZ)-1),1)
-      if (numVars > maxVars && maxVars != (length(dfNZ)-1))
+  imputeSet <- parSapply(cl, 1:length(missColsTrans),imputation, missColsTrans, colNames, dtTrain, dtPred, numIters)
+  stopCluster(cl)
+}
+
+#Determine if Unsolvable for row skipping
+unsolvable = 0
+if (!is.matrix(imputeSet)){
+  unsolvable = 1
+} else{
+  for (n in 1:ncol(imputeSet))
+  {
+    if (length(imputeSet[,n]) == 1){    
+    } else{
+      #totalMaxVars = totalMaxVars + maxVars
+      dfImput <- imputeSet[,n]
+      #Assign missing column number
+      missCol <- missColsTrans[n]
+      
+        #Create Average from Prediction
+      impNames <- summary(dfImput$imp)
+      impPosition <- 0
+      for (i in 1:nrow(impNames))
       {
-        #print("hi")
-        iter <- iter + 1
-        
-        #print "hi"
-        
-        varVector <- sample(1:(length(dfNZ)-1),numVars,replace=F)
-        varVector <- c(varVector,length(dfNZ))
-        
-        listVars <- dfNZ[varVector]
-        dtWorkImput <- dfAll[,(names(dfAll) %in% listVars)]
-        
-        #Catch error and continue if equation cannot be solved with given variables
-        tryCatch({
-          dfImput <- mice(dtWorkImput,m=10,maxit=10, method="pmm",seed = 3)
-          if (numVars > maxVars)
-          {
-            maxVars <- numVars
-          }
-          successVector = varVector
-          },
-            error = function(e)
-            {
-              #next
-            })
-          
-      } 
-      else if (maxVars == (length(dfNZ)-1))
-      {
-        break
+        if (as.integer(impNames[i,1]) > 0)
+        {    
+          impPosition <- i
+        }
       }
       
-    }
-    
-    
-    
-    #Create Average from Prediction
-    impNames <- summary(dfImput$imp)
-    impPosition <- 0
-    for (i in 1:nrow(impNames))
-    {
-      if (as.integer(impNames[i,1]) > 0)
-      {    
-        impPosition <- i
+      
+      dfAvgImp <- data.frame(dfImput$imp[impPosition])
+      dfAvgImp$Avg <- 0
+      
+      for (i in 1:nrow(dfAvgImp)){
+        Avg <- 0
+        for (j in 1:(ncol(dfAvgImp) - 1)){
+          Avg <- dfAvgImp[i,j] + Avg
+        }
+        Avg <- Avg/(ncol(dfAvgImp)-1)
+        dfAvgImp[i,ncol(dfAvgImp)] = Avg
       }
-    }
-    
-    
-    dfAvgImp <- data.frame(dfImput$imp[impPosition])
-    dfAvgImp$Avg <- 0
-    
-    for (i in 1:nrow(dfAvgImp)){
-      Avg <- 0
-      for (j in 1:(ncol(dfAvgImp) - 1)){
-        Avg <- dfAvgImp[i,j] + Avg
+      
+      dfAvgImp$rowNames <- row.names(dfAvgImp)
+      rowNames <- row.names(dfAvgImp) 
+      
+      #Impute Variable into missing rows
+      for (i in 1:length(listImputeCases))
+      {
+        dfImpute[dfImpute$rowNames==listImputeCases[i],missCol] <- dfAvgImp[dfAvgImp$rowNames==rowNames[i],c("Avg")]
       }
-      Avg <- Avg/(ncol(dfAvgImp)-1)
-      dfAvgImp[i,ncol(dfAvgImp)] = Avg
+      
+      #Fix work
+      dtWork <- dfImpute[,-c(ncol(dfImpute))]
+      
+      #Garbage Collection
+      rm(list=c("Avg","dfImput","i","impNames","impPosition","j","rowNames"))
     }
-    
-    dfAvgImp$rowNames <- row.names(dfAvgImp)
-    rowNames <- row.names(dfAvgImp) 
-    
-    #Impute Variable into missing rows
-    for (i in 1:length(rowNames))
-    {
-      dfImpute[dfImpute$rowNames==rowNames[i],missCol] <- dfAvgImp[dfAvgImp$rowNames==rowNames[i],c("Avg")]
-    }
-    
-    #Fix work
-    dtWork <- dfImpute[,-c(ncol(dfImpute))]
   }
+}
 
+#Set final variables
+if (unsolvable == 1)
+{
+  skipRow = skipRow + 1
+}
+dfMissPatt <- md.pattern(dtWork)
+totalImputesComplete = totalImputesComplete + curImputes
+imputesRemain <- totalImputes - totalImputesComplete
+
+#Write DataTable
+write.csv(dfImpute, file = "Data/WorkingData/Combined_Imputed_Complete.csv")
 
 #Garbage Collection
-rm(list=c("Avg","dfImput","i","impNames","impPosition","j","rowNames",
-          "missCol","colNames"))
-
-rm(list=c("maxVars","numVars","listVars","iter","h","missColsTrans","n",
-          "seed","subStr","successVector","varVector","dfNZ","dtWorkImput",
-          "dfComplete","dfAll","lassoCoeffs","missCols","predFactor"))
+rm(list=c("missColsTrans","dfComplete","missCols",#"predFactor",
+          "colNames","imputeSet"))
+rm(list=c("listImputeCases","listCompleteCases"))
 }
 
 #Write DataTable
-write.csv(dfImpute, file = "dtImpute.csv")
+write.csv(dfImpute, file = "Data/TransformedData/Combined_Imputed_Complete.csv")

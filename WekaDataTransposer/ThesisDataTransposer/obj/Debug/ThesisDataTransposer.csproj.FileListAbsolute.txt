@@ -1,0 +1,6 @@
+c:\users\eli.crane\documents\visual studio 2012\Projects\ThesisDataTransposer\ThesisDataTransposer\bin\Debug\ThesisDataTransposer.exe.config
+c:\users\eli.crane\documents\visual studio 2012\Projects\ThesisDataTransposer\ThesisDataTransposer\obj\Debug\ThesisDataTransposer.csprojResolveAssemblyReference.cache
+c:\users\eli.crane\documents\visual studio 2012\Projects\ThesisDataTransposer\ThesisDataTransposer\bin\Debug\ThesisDataTransposer.exe
+c:\users\eli.crane\documents\visual studio 2012\Projects\ThesisDataTransposer\ThesisDataTransposer\bin\Debug\ThesisDataTransposer.pdb
+c:\users\eli.crane\documents\visual studio 2012\Projects\ThesisDataTransposer\ThesisDataTransposer\obj\Debug\ThesisDataTransposer.exe
+c:\users\eli.crane\documents\visual studio 2012\Projects\ThesisDataTransposer\ThesisDataTransposer\obj\Debug\ThesisDataTransposer.pdb
