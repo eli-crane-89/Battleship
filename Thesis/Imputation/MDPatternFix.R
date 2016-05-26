@@ -1,3 +1,5 @@
+#This is a fix for md.pattern function in the MICE package. The solution is not yet complete.
+
 function (x) 
 {
   if (!(is.matrix(x) | is.data.frame(x))) 
