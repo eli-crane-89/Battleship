@@ -1,4 +1,4 @@
-function (x) 
+md.pattern2 <- function (x) 
 {
   if (!(is.matrix(x) | is.data.frame(x))) 
     stop("Data should be a matrix or dataframe")
@@ -13,6 +13,7 @@ function (x)
   nmis <- as.integer(apply(r, 2, sum))
   names(nmis) <- dimnames(x)[[2]]
   
+  #Implement Scalable Solution
   maxVars <- 50
   numDivs <- ceiling(p/maxVars)
   mdpMatrix <- matrix(0,n,1)
@@ -50,19 +51,22 @@ function (x)
       curVal <- mdpTemp[i,1]
       curPair <- mdpTempUnique[mdpTempUnique$Value == curVal,2]
       
+      k = 10
+      while (mdpMatrix[i,1] != 0 && mdpMatrix[i,1] + curPair == curPair)
+      {
+        mdpMatrix[i,1] = mdpMatrix[i,1] * k
+        k = k * 10
+      }
+      
       mdpMatrix[i,1] <- mdpMatrix[i,1] + curPair
     }
-    
-
   }
   
-  r <- x
+  r <- 1* is.na(x)
   mdp <- mdpMatrix
   #mdp <- (r %*% (2^((1:ncol(x)) - 1))) + 1
   
-  
-  
-  
+  #Continue with function as normal
   ro <- order(mdp)
   x <- matrix(x[ro, ], n, p)
   mdp <- mdp[ro]
@@ -89,6 +93,6 @@ function (x)
   r <- cbind(r, c(nmis.row[ro2], sum(nmis)))
   r
 }
-<environment: namespace:mice>
+#<environment: namespace:mice>
   
-  write.csv(data.frame(mdpMatrix), file = "Data/WorkingData/mdpMatrix.csv")
+  
