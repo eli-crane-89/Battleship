@@ -9,4 +9,4 @@ MDPatternFix
 MDPatternFix2
 -Uses matrix multiplication and splits the data set by column groups of 50
 -Very fast
--Small chance of simila rows that are not completely the same in terms of missing variables grouping together.
+-Small chance of similar rows that are not completely the same in terms of missing variables grouping together.
