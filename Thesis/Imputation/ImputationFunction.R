@@ -109,18 +109,5 @@ imputation <- function(n, missColsTrans, colNames, dtTrain, dtPred, numIters)
   }
 }
 
-#Cluster SetUp
-#cl <- makeCluster(3)
-#clusterExport(cl,c('imputation'))
 
-#Testing
-# print(sprintf("Current Time: %s",as.POSIXlt(Sys.time())))
-# imputeSet <- sapply(1:length(missColsTrans),imputation, missColsTrans, colNames, dtTrain, dtPred, numIters)
-# print(sprintf("Current Time: %s",as.POSIXlt(Sys.time())))
-# 
-# print(sprintf("Current Time: %s",as.POSIXlt(Sys.time())))
-# imputeSet <- parSapply(cl, 1:length(missColsTrans),imputation, missColsTrans, colNames, dtTrain, dtPred, numIters)
-# print(sprintf("Current Time: %s",as.POSIXlt(Sys.time())))
-# stopCluster(cl)
-# 
 
