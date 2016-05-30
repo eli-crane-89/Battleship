@@ -79,7 +79,6 @@ imputation <- function(n, missColsTrans, colNames, dtTrain, dtPred, numIters)
       #Catch error and continue if equation cannot be solved with given variables
       capture.output(tryCatch({
         dfImput <- mice(dtWorkImput,m=10,maxit=10, method="pmm",seed = 3)
-        print("Hello")
         if (numVars > maxVars)
         {
           maxVars <- numVars

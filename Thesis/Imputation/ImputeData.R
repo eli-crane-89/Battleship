@@ -16,16 +16,18 @@ resume = 1
 if (resume == 1){
   dtWork <- read.csv(file="Data/WorkingData/Combined_Imputed_Complete.csv", header=T, sep = ",")
   dropCols <- c("X","rowNames")
+  nextRow <- 0
 }else{
   dtWork <- read.csv(file="Data/TransformedData/WorldBankData_ReadyForImputation_MiddleEastSouthAsiaSouthEastAsia_1966_2013.csv", header=T, sep = ",")
   dropCols <- c("Key","X")
+  nextRow <- 0
 }
 
 dtWork <- dtWork[,!(names(dtWork) %in% dropCols)]
 
 
 #Find Initial Missing Pattern
-dfMissPatt <- md.pattern(dtWork)
+dfMissPatt <- md.pattern2(dtWork)
 
 #Copy dataframe for final imputation
 dfImpute <- dtWork
@@ -33,22 +35,25 @@ dfImpute$rowNames <- row.names(dfImpute)
 
 #Set InitialVars
 noCols = ncol(dfMissPatt)
-skipRow = 8
 z = 0
 startTime <- Sys.time()
-totalImputes = sum(data.frame(dfMissPatt[(2+skipRow):(nrow(dfMissPatt)-1),noCols]))
+totalImputes = sum(data.frame(dfMissPatt[(2+nextRow):(nrow(dfMissPatt)-1),noCols]))
 #totalImputes <- 36
 totalImputesComplete = 0
-
+supposedImputedRows = 0
+actualImputedRows = 0
+skipRow <- 0
 imputesRemain <- totalImputes
 totalPossibleVars = 0
 totalMaxVars = 0
 numIters = 500
+numCluster = 4
 
 #Garbage Collection
 rm(list=c("dropCols"))
 
 while (imputesRemain > 0)
+#while (z < 12)
 {
 
 
@@ -60,6 +65,8 @@ print(sprintf("Current Time: %s",as.POSIXlt(Sys.time())))
 timeDiff <- difftime(Sys.time(),startTime,units="mins")
 print(sprintf("Time Running: %f minutes", timeDiff))
 print(sprintf("Imputed Values: %s",totalImputesComplete))
+print(sprintf("Supposed Imputed Rows: %s",supposedImputedRows))
+print(sprintf("Actual Imputed Rows: %s",actualImputedRows))
 print(sprintf("Non Imputed Values: %s",imputesRemain))
 print(sprintf("Number of Iterations: %s",numIters))
 # if (totalImputesComplete > 0)
@@ -67,19 +74,23 @@ print(sprintf("Number of Iterations: %s",numIters))
 #   avgPerc = (totalMaxVars/totalPossibleVars) * 100
 #   print(sprintf("Average Percent of Vars Used Per Imputation: %s",avgPerc))
 # }
-print(sprintf("SkipRow: %s", skipRow))
+print(sprintf("Next Row: %s", nextRow))
+print(sprintf("Skip Row: %s", skipRow))
 if (z > 1)
 {  
   timeRemain <- (timeDiff/(totalImputesComplete)) * (imputesRemain)
   print(sprintf("Estimated Time Remaining: %f minutes", timeRemain))
 }
-curImputes = dfMissPatt[2+skipRow,noCols]
+
+
+curImputes = dfMissPatt[2+nextRow,noCols]
+print(as.integer(row.names(dfMissPatt)[2+nextRow]))
+supposedImputedRows <- supposedImputedRows + as.integer(row.names(dfMissPatt)[2+nextRow])
 
 
 
 #Create Missing Pattern
-write.csv(md.pattern(dtWork), file = "Data/WorkingData/wbMissingPattern.csv")
-
+write.csv(dfMissPatt, file = "Data/WorkingData/wbMissingPattern.csv")
 
 
 #Determine if there are complete cases
@@ -132,7 +143,7 @@ colNamesMiss <- colnames(dfMissPatt)
 missCols <- c(0)
 for (j in 1:(ncol(dfMissPatt) - 1))
 {
-  if (dfMissPatt[(2+skipRow),j] == 0){
+  if (dfMissPatt[(2+nextRow),j] == 0){
     missCols <- c(missCols,j)
   }  
 }
@@ -174,7 +185,8 @@ for (i in 1:nrow(dtWork))
 }
 listImputeCases = listImputeCases[2:length(listImputeCases)]
 
-
+actualImputedRows = actualImputedRows + length(listImputeCases) 
+print(listImputeCases)
 
 #Create Train and Predict data set based on NAs
 dtTrain <- dtWork[listCompleteCases,]
@@ -188,7 +200,7 @@ if (length(missColsTrans) == 1){
   imputeSet <- sapply(1:length(missColsTrans),imputation, missColsTrans, colNames, dtTrain, dtPred, numIters)
 } else{
   #Cluster SetUp
-  cl <- makeCluster(4)
+  cl <- makeCluster(numCluster)
   clusterExport(cl,c('imputation'))
   
   imputeSet <- parSapply(cl, 1:length(missColsTrans),imputation, missColsTrans, colNames, dtTrain, dtPred, numIters)
@@ -252,11 +264,14 @@ if (!is.matrix(imputeSet)){
 }
 
 #Set final variables
+nextRow = nextRow + 1
+
 if (unsolvable == 1)
 {
   skipRow = skipRow + 1
 }
-dfMissPatt <- md.pattern(dtWork)
+
+#dfMissPatt <- md.pattern(dtWork)
 totalImputesComplete = totalImputesComplete + curImputes
 imputesRemain <- totalImputes - totalImputesComplete
 
