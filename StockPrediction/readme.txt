@@ -9,7 +9,7 @@ The TestStrategy.R file can be used to test different model's performance on pre
 the training and test data sets created with the above script. Choose the strategy which right now contains 3 different
 models: logit regression, support vector machines, and quadratic discriminant analysis using preselected variables.
 On lines 38 - 43 you may choose between these models or add in your own model. The other parameters that need
-to be set are "equity", which represents your initial equity, "fee" which represents the percentage of equity that is lost on each
-trade, and "strat.strat" which is the strategy. You may choose "fixed" (generate the model once on the initial training data)
-or "dynamic", which will regenerate the model each day by creating a new model. Results will print.
+to be set are "equity", which represents your initial equity, "fee" which represents the percentage of equity that is lost on
+each trade, and "strat.strat" which is the strategy. You may choose "fixed" (generate the model once on the initial training 
+data) or "dynamic", which will regenerate the model each day by creating a new model. Results will print.
 
