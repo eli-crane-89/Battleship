@@ -14,7 +14,6 @@ numt <- 100 #number of test observations
 getSymbols(Stck, from = FromDate, to = ToDate,  src="yahoo")
 
 STCK.df <- data.frame(date=index(COF), coredata(COF)) #Replace symbol twice
-rm(COF) #Replace with symbol
 
 ############StockDataFunction###################
 colnames(STCK.df) <- c("Date", "Open", "High", "Low", "Close", "Volume", "Adjusted")
