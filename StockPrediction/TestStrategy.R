@@ -35,17 +35,6 @@ for (i in 1:(nrow(STCK.df.test)))
     set.seed(1)
     
     ###Target###
-    #strat.fit <- ksvm(DirNDay ~ l_SPY.Close + l_UUP.Close + l_FXE.Close + 
-                      #l_CPI + ExMA50,
-                      #data=strat.df.train, C=1,kernel='rbfdot', prob.model=T)
-    #strat.fit <- glm(DirNDay ~ l_SPY.Close + l_UUP.Close + l_FXE.Close + 
-                       #l_CPI + ExMA50,
-                       #data=strat.df.train, family="binomial")
-    
-    ###Capital One###
-    #strat.fit <- ksvm(DirNDay ~l_UUP.Close + l_FXE.Close + l_CPI + MA50 + ExMA05  
-                      #+ ExMA10 + BIAS10 + RSI06 + ROC10 + MACD9Score,
-                      #data=strat.df.train, C=1,kernel='rbfdot', prob.model=T)
     #strat.fit <- ksvm(DirNDay ~.,
                       #data=strat.df.train, C=1,kernel='rbfdot', prob.model=T)
     strat.fit <- glm(DirNDay ~l_UUP.Close + l_FXE.Close + l_CPI + MA50 + ExMA05  
